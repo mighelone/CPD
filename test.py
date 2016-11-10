@@ -1,6 +1,10 @@
 import cpd
 import matplotlib.pyplot as plt
+import logging
 
+log_level = logging.INFO
+
+logging.basicConfig(level=log_level)
 plt.style.use(['mystyle', 'mystyle-vega'])
 
 ua = {'C': 80, 'H': 8, 'O': 12, 'N': 0, 'S': 0}

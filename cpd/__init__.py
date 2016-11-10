@@ -12,8 +12,19 @@ import pkp.cpd
 import numpy as np
 from autologging import logged
 from scipy.integrate import ode
+from scipy.stats import norm
 
 Rgas = 1.987  # cal/mol-K
+
+
+def invernorm(y):
+    y_min = 0.0003
+    y_max = 0.9997
+    if y < y_min:
+        y = y_min
+    elif y > y_max:
+        y = y_max
+    return norm.ppf(y)
 
 
 @logged
@@ -23,7 +34,7 @@ class CPD(pkp.cpd.CPD):
         l, delta, c = y
         p = l + c
         T = self.T(t)
-        kb, rho, kg = self.rates(T)
+        kb, rho, kg = self.rates(T, y)
         dldt = -kb * l
         f = 1 / (1 + rho)
         ddeldt = 2 * rho * kb * f * l - kg * delta
@@ -65,13 +76,22 @@ class CPD(pkp.cpd.CPD):
 
         return t, y
 
-    def rates(self, T):
+    def rates(self, T, y):
         '''
         Calculate rates for the given temperature
         '''
         # TODO update to account for sigma
+        l, delta, c = y
+        p = l + c
+        f = 1 - p
+        g1 = 2 * f - delta
+        g2 = 2 * (c - self.c0)
+        g = g1 + g2
         RT = T * Rgas
-        kb = self.ab * np.exp(-self.eb / RT)
+        eb = self.eb + invernorm(1 - l / (self.p0 - self.c0))
+        self.__log.debug('Eb %s Eb0 %s', eb, self.eb)
+        kb = self.ab * np.exp(-eb / RT)
         kc = self.ac * np.exp(-self.ec / RT)
-        kg = self.ag * np.exp(-self.eg / RT)
+        eg = self.eg + invernorm(0.5 * g / (1 - self.c0)) * self.egsig
+        kg = self.ag * np.exp(-eg / RT)
         return kb, kc, kg
