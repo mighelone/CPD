@@ -4,8 +4,8 @@ import logging
 
 plt.style.use(['mystyle', 'mystyle-vega'])
 
-ua = {'C': 80, 'H': 8, 'O': 12, 'N': 0, 'S': 0}
-pa = {'FC': 45.1, 'VM': 50.6, 'Ash': 4.3, 'Moist': 19.0}
+ua = {'C': 74.12, 'H': 4.96, 'O': 13.18, 'N': 1.45, 'S': 0}
+pa = {'FC': 57, 'VM': 43, 'Ash': 0, 'Moist': 0}
 
 operating_conditions = [[0, 300], [0.01, 1200], [0.02, 1200]]
 
@@ -36,8 +36,8 @@ def test_ode():
     ax.plot(t, g2 / 2, label='$g_2/2$')
     ax.legend()
 
-    ax.figure.save('cpd_0.png')
-    plt.close(ax.figure)
+    # ax.figure.save('cpd_0.png')
+    # plt.close(ax.figure)
 
 
 def test_percolation():
@@ -59,12 +59,13 @@ def test_flash():
     mw_n = percolation['m_frag_n']
     meta_n = f_frag_n * (1 - f)
     T = 800.0
-    fracr = 0.0
-    coal.flash_distillation(df_gas=df_gas, mw_gas=mw_gas, df_n=df_n, meta_n=meta_n,
-                            mw_n=mw_n, fracr=fracr, T=T)
+    fracr = 1.0
+    coal._flash_distillation(df_gas=df_gas, mw_gas=mw_gas, df_n=df_n,
+                             meta_n=meta_n, mw_n=mw_n, fracr=fracr, T=T)
 
 
-log_level = logging.DEBUG
+log_level = logging.INFO
 
 logging.basicConfig(level=log_level)
-test_flash()
+# test_flash()
+test_ode()

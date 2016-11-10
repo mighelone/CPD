@@ -31,6 +31,15 @@ def invernorm(y):
 @logged
 class CPD(pkp.cpd.CPD):
 
+    def _set_NMR_parameters(self, nmr_parameters=None):
+        super(CPD, self)._set_NMR_parameters(nmr_parameters)
+        self.sigma = self.sig - 1
+        # average mass of the fused ring site
+        self.ma = self.mw - self.sig * self.mdel
+        # mass of bridges
+        self.mb = 2 * self.mdel
+        self.rba = self.mb / self.ma
+
     def _dydt(self, t, y):
         l, delta, c = y
         T = self.T(t)
@@ -41,7 +50,7 @@ class CPD(pkp.cpd.CPD):
         dcdt = kb * f * l
         return [dldt, ddeldt, dcdt]
 
-    def _bridge_evolution(self):
+    def _bridge_evolution(self, n_frag=20):
         '''
         '''
         # variables are [l, d, c]
@@ -67,13 +76,15 @@ class CPD(pkp.cpd.CPD):
               f_tar,
               f_meta,
               f_cross]]
+        meta_n = np.zeros(n_frag)
+        f_frag_n = np.zeros(n_frag)
         while solver.t < time_end:
             # print(solver.t)
             # self.__log.debug('t=%s', solver.t)
             # print(solver.t, solver.y, self._dydt(
             #    solver.t, solver.y), self.T(solver.t))
             solver.integrate(time_end, step=True)
-            dt = solver.t - t[1]
+            dt = solver.t - t[-1]
             T = self.T(solver.t)
             t.append(solver.t)
             y.append(solver.y)
@@ -86,7 +97,16 @@ class CPD(pkp.cpd.CPD):
             else:
                 rate_cross = 0
                 fract = 1
-            percolation = self._percolation(y, f_tar, in_tar=True)
+            percolation = self._percolation(solver.y, f_tar,
+                                            n_frag=n_frag, in_tar=True)
+            df_gas = max(percolation['f_gas'] - f_gas, 0)
+            mw_n = percolation['m_frag_n']
+            df_n = percolation['f_frag_n'] - f_frag_n
+            mw_gas = 28.0  # define better this value
+
+            tar_n, meta_n = self._flash_distillation(
+                df_gas=df_gas, mw_gas=mw_gas, df_n=df_n, meta_n=meta_n,
+                mw_n=mw_n, fracr=fract, T=T)
 
         t = np.array(t)
         y = np.array(y)
@@ -109,7 +129,7 @@ class CPD(pkp.cpd.CPD):
         kg = self.ag * np.exp(-eg / RT)
         return kb, kc, kg
 
-    def _percolation(self, y, f_tar=0, in_tar=True):
+    def _percolation(self, y, f_tar=0, n_frag=20, in_tar=True):
         def pstar_eq(pstar):
             '''Eq. 6 in CPD summary'''
             def f(p0):
@@ -117,56 +137,49 @@ class CPD(pkp.cpd.CPD):
             return f(pstar) - f(p)
         l, delta, c = y
         p = l + c
-        f = 1 - p
         g1, g2 = self.gas(y)
         g = g1 + g2
         # TODO this values are global
-        sigma = self.sig - 1
-        # average mass of the fused ring site
-        ma = self.mw - self.sig * self.mdel
-        # mass of bridges
-        mb = 2 * self.mdel
-        rba = mb / ma
 
         if in_tar:
             # Eq. 36, 37
             delta_fac = delta / (1 - p) if p < 0.9999 else 1
-            a = 1 + rba * (l / p + (sigma - 1) * 0.25 * delta_fac)
+            a = 1 + self.rba * (l / p + (self.sigma - 1)
+                                * 0.25 * delta_fac)
             b = 0.5 * delta_fac - l / p
             # p_threasold is the minimum value of p for which there are
             # nomore infinite fragments (only finite fragments)
-            p_threasold = 1. / sigma + 1e-4
+            p_threasold = 1. / self.sigma + 1e-4
             if p > 0.999:
                 pstar = 1
             elif p > p_threasold:
                 pstar = brentq(pstar_eq, p_threasold, 1)
             else:
                 pstar = p
-            sfac = self.sig / (sigma - 1)
+            sfac = self.sig / (self.sigma - 1)
             # Eq. (5) fraction of finite fragments
             Fp = (pstar / p) ** sfac
             Kp = Fp * (1 - self.sig * 0.5 * pstar)
             # Eq. (39) mass fraction of finite fragments
             f_frag = 2 * (a * Fp + b * Kp) / \
-                (2 + rba * (1 - self.c0) * self.sig)
+                (2 + self.rba * (1 - self.c0) * self.sig)
 
         # mass of gas released at time t Eq (31)
         # gas is produced only considering the remaining fragments in
         # the metaplast
-        mgas = rba * ma * g * self.sig * 0.25 * (1 - f_tar)
-        mtot = ma + rba * ma * self.sig * 0.5 * (1 - self.c0)
+        mgas = self.mb * g * self.sig * 0.25 * (1 - f_tar)
+        mtot = self.ma + self.mb * self.sig * 0.5 * (1 - self.c0)
         f_gas = mgas / mtot
         f_char = 1 - f_tar - f_gas
-
         #
-        n = np.arange(1, 20)  # number of clusters in a fragment
+        n = np.arange(1, n_frag + 1)  # number of clusters in a fragment
         # broken bridges per cluster of size n
-        tau = n * (sigma - 1) + 2
+        tau = n * (self.sigma - 1) + 2
         s = n - 1  # intact bridges per cluster of size n
         n_bridges = tau + s
         # Eq. 32 mass of a finite fragment of size n
-        m_frag_n = (n * ma + (n - 1) * mb * l / p +
-                    tau * mb * delta_fac * 0.25)
+        m_frag_n = (n * self.ma + (n - 1) * self.mb * l / p +
+                    tau * self.mb * delta_fac * 0.25)
         # Eqs (1-4)
         Qn = self.sig / n_bridges / n * binom.pmf(s, n_bridges, p)
         # Eq. (33) total mass of fragments of size
@@ -200,7 +213,8 @@ class CPD(pkp.cpd.CPD):
     def _crosslinking(self, f_meta, T, dt):
         return self.Acr * np.exp(-self.Ecr / Rgas / T) * f_meta * dt
 
-    def flash_distillation(self, df_gas, mw_gas, df_n, meta_n, mw_n, fracr, T):
+    def _flash_distillation(self, df_gas, mw_gas, df_n, meta_n, mw_n,
+                            fracr, T):
 
         def funct(x):
             '''Eq 54'''
@@ -228,8 +242,12 @@ class CPD(pkp.cpd.CPD):
         self.__log.debug('kn %s', k_n)
         z_n = F_n / F
         self.__log.debug('zn %s', z_n)
-        fract_v = brentq(funct, 0, 0.999)
-        self.__log.debug('F/V = %s', fract_v)
+        if funct(0) * funct(0.999) > 0:
+            self.__log.debug('No vapor')
+            fract_v = 0
+        else:
+            fract_v = brentq(funct, 0, 0.999)
+            self.__log.debug('F/V = %s', fract_v)
         V = fract_v * F  # moles of tar
         L = F - V
         # mole fraction of n-mers in the metaplast
