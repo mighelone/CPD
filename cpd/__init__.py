@@ -143,7 +143,9 @@ class CPD(pkp.cpd.CPD):
         g1, g2 = self.gas(y)
         g = g1 + g2
         RT = T * Rgas
-        eb = self.eb + invernorm(1 - l / (self.p0 - self.c0))
+        # calculate bridge decomposition reaction rate
+        eb = self.eb + self.ebsig * invernorm(
+            1 - l / (self.p0 - self.c0))
         # self.__log.debug('Eb %s Eb0 %s', eb, self.eb)
         kb = self.ab * np.exp(-eb / RT)
         kc = self.ac * np.exp(-self.ec / RT)
