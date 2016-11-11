@@ -7,7 +7,7 @@ plt.style.use(['mystyle', 'mystyle-vega'])
 ua = {'C': 74.12, 'H': 4.96, 'O': 13.18, 'N': 1.45, 'S': 0}
 pa = {'FC': 57, 'VM': 43, 'Ash': 0, 'Moist': 0}
 
-operating_conditions = [[0, 300], [0.01, 1200], [0.02, 1200]]
+operating_conditions = [[0, 1000], [0.01, 1000], [0.02, 1000]]
 
 
 def create_cpd():
@@ -19,7 +19,7 @@ def create_cpd():
 
 def test_ode():
     coal = create_cpd()
-    t, y, fract = coal._bridge_evolution()
+    t, y, fract = coal._bridge_evolution(time_end=1e-2)
     ax = plt.subplot(111)
     l = y[:, 0]
     delta = y[:, 1]
@@ -41,7 +41,6 @@ def test_ode():
     for i, l in enumerate(labels):
         ax.plot(t, fract[:, i], label=l)
     ax.legend()
-    plt.show()
 
 
 def test_percolation():
@@ -68,8 +67,9 @@ def test_flash():
                              meta_n=meta_n, mw_n=mw_n, fracr=fracr, T=T)
 
 
-log_level = logging.INFO
+log_level = logging.DEBUG
 
 logging.basicConfig(level=log_level)
 # test_flash()
 test_ode()
+plt.show()
