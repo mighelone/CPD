@@ -1,7 +1,14 @@
 '''
-CPD python implementation
+pyCPD
+=====
 
-Michele Vascellari
+New implementation in python of the Chemical Percolation
+Devolatilization(CPD) model for coal devolatilization.
+
+The CPD class is derived by the CPD class in the `PKP` module, which
+calls the Fortran CPD code externally.
+
+(c) Michele Vascellari 2016 Michele.Vascellari@vtc.tu-freiberg.de
 '''
 from __future__ import division, absolute_import
 from __future__ import print_function, unicode_literals
@@ -14,11 +21,26 @@ from autologging import logged
 from scipy.integrate import ode
 from scipy.stats import norm, binom
 from scipy.optimize import brentq, newton
+import pandas as pd
 
 Rgas = 1.987  # cal/mol-K
 
 
 def invernorm(y):
+    '''
+    Calculate the inverse of the CDF of the normal distribution.
+    It is a wrapper to scipy.stats.norm.ppf, which prevents to use
+    values of the cumulative probability too small or too large.
+
+    Parameters
+    ----------
+    y: float, array
+        Cumulative probability
+
+    Return
+    ------
+    float: inverse of the norm CDF
+    '''
     y_min = 0.0003
     y_max = 0.9997
     if y < y_min:
@@ -30,8 +52,47 @@ def invernorm(y):
 
 @logged
 class CPD(pkp.cpd.CPD):
+    '''
+    CPD class.
+    '''
+
+    def run(self, time=None, n_frag=20):
+        '''
+        Run CPD 
+
+        Parameters
+        ----------
+        time: float
+            End of calculation, if it is not specified use the last
+            time in operating_conditions.
+
+        Returns
+        -------
+        results: pandas.Dataframe
+            Dataframe containg the results of CPD as a function of the
+            residence time.
+        '''
+        t, y, f = self._bridge_evolution(n_frag=n_frag, time_end=time)
+        data = np.concatenate([t[:, np.newaxis], y, f], axis=1)
+        df = pd.DataFrame(data,
+                          columns=['t', 'l', 'delta', 'c', 'char',
+                                   'light_gas', 'tar', 'meta', 'cross'])
+        df['T'] = self.T(t)
+        df['p'] = self.intact_bridges(y.T)
+        df['f'] = 1 - df['p']
+        df['g1'], df['g2'] = self.gas(y.T)
+        return df
 
     def _set_NMR_parameters(self, nmr_parameters=None):
+        '''
+        Calc parameters using Genetti correlation
+
+        Parameters
+        ----------
+        parameters: dict, default=None
+            Manually set parameters using a dictionary
+            {'mdel': 0, 'mw': 0, 'p0': 0, 'sig': 0}
+        '''
         super(CPD, self)._set_NMR_parameters(nmr_parameters)
         self.sigma = self.sig - 1
         # average mass of the fused ring site
@@ -41,7 +102,24 @@ class CPD(pkp.cpd.CPD):
         self.rba = self.mb / self.ma
 
     def _dydt(self, t, y):
+        '''
+        Integrand function for the ODE solver.
+
+        Parameters
+        ----------
+        t: float
+            Time
+        y: array
+            Number of bridges calculated respect to overall number of
+            bridges:
+            (labile bridges, side chains, char bridges)
+
+        Return:
+        dydt: array
+        '''
         l, delta, c = y
+        # Calculate the temperature.
+        # It is valid only for prescribed particle temperatures
         T = self.T(t)
         kb, rho, kg = self._rates(T, y)
         dldt = -kb * l
@@ -52,6 +130,23 @@ class CPD(pkp.cpd.CPD):
 
     def _bridge_evolution(self, n_frag=20, time_end=None):
         '''
+        Calculate the evolution of the bridges, solving the ODE.
+        For each time step, the cross-linking, percolation and flash
+        distillation functions are called in order to calculate the
+        mass fractions of gas, tar and solid.
+
+        Parameters
+        ----------
+        n_frag: int (20)
+            Number of fragments considered
+        time_end: float, None
+            End of the calculation. If not specified use the maximum
+            time in the operating_conditions.
+
+        Return
+        ------
+        t, y, f
+            Time, bridges and mass fraction arrays
         '''
         # variables are [l, d, c]
         backend = 'dopri5'
@@ -89,7 +184,8 @@ class CPD(pkp.cpd.CPD):
             #    solver.t, solver.y), self.T(solver.t))
             solver.integrate(time_end, step=True)
             self.__log.info(
-                '\n\nStart new time step\ntime=%s y=%s\n', solver.t, solver.y)
+                '\n\nStart new time step\ntime=%s y=%s\n', solver.t,
+                solver.y)
             self.__log.debug('Gas bridges=%s', self.gas(solver.y))
             dt = solver.t - t[-1]
             T = self.T(solver.t)
@@ -225,7 +321,8 @@ class CPD(pkp.cpd.CPD):
         mtot = self.ma + self.mb * self.sig * 0.5 * (1 - self.c0)
         f_gas = mgas / mtot
         self.__log.debug(
-            'fraction of gas (corrected with tar released) %s (%s)', f_gas, f_tar)
+            'fraction of gas (corrected with tar released) %s (%s)',
+            f_gas, f_tar)
         f_solid = 1 - f_tar - f_gas
         self.__log.debug(
             'fraction of remaining solid (includes finite and inf. fragments) %s', f_solid)

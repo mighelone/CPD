@@ -30,25 +30,24 @@ if __name__ == '__main__':
         c0.set_parameters(dt=1e-5, dt_max=10)
         results0 = c0.run()
 
-    c = cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
-                pressure=101325, name='Test')
-    c.operating_conditions = operating_conditions
+    coal = cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
+                   pressure=101325, name='Test')
+    coal.operating_conditions = operating_conditions
 
-    t, y, fract = c._bridge_evolution()
+    results = coal.run()
 
     fig, axes = plt.subplots(
         nrows=2, ncols=1, sharex='col', figsize=(8, 12))
     ax1, ax2 = axes
-    l = y[:, 0]
-    delta = y[:, 1]
-    c = y[:, 2]
-    p = l + c
-    f = 1 - p
-    g1 = 2 * f - delta
-    g2 = 2 * (c - c[0])
-    ax1.plot(t, l, label='$l$', color=colors[0])
-    ax1.plot(t, delta / 2, label='$\delta/2$', color=colors[1])
-    ax1.plot(t, c + l, label='$p$', color=colors[2])
+    results['delta/2'] = 0.5 * results['delta']
+
+    results.plot(x='t', y='l', label='$l$', color=colors[0], ax=ax1)
+    results.plot(x='t', y='delta/2', label='$delta/2$', color=colors[1],
+                 ax=ax1)
+    results.plot(x='t', y='p', label='$c$', color=colors[2], ax=ax1)
+    #ax1.plot(t, l, label='$l$', color=colors[0])
+    #ax1.plot(t, delta / 2, label='$\delta/2$', color=colors[1])
+    #ax1.plot(t, c + l, label='$p$', color=colors[2])
 
     ax1.plot(results0.index, results0['l'], color=colors[0],
              linestyle='dashed')
@@ -64,7 +63,7 @@ if __name__ == '__main__':
 
     labels = ['char', 'light_gas', 'tar']
     for i, l in enumerate(labels):
-        ax2.plot(t, fract[:, i], label=l, color=colors[i])
+        results.plot(x='t', y=l, label=l, color=colors[i], ax=ax2)
         ax2.plot(results0.index, results0[l],
                  color=colors[i], linestyle='dashed')
     ax2.legend()
