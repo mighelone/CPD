@@ -103,15 +103,22 @@ class CPD(pkp.cpd.CPD):
             mw_n = percolation['m_frag_n']
             df_n = percolation['f_frag_n'] - f_frag_n
             mw_gas = 28.0  # define better this value
+            f_gas = percolation['f_gas']
 
             tar_n, meta_n = self._flash_distillation(
                 df_gas=df_gas, mw_gas=mw_gas, df_n=df_n, meta_n=meta_n,
                 mw_n=mw_n, fracr=fract, T=T)
 
+            f_tar = tar_n.sum()
+            f_meta = meta_n.sum()
+            f_solid = 1 - f_tar - f_gas
+            f.append([f_solid, f_gas, f_tar, f_meta, f_cross])
+
         t = np.array(t)
         y = np.array(y)
+        f = np.array(f)
 
-        return t, y
+        return t, y, f
 
     def _rates(self, T, y):
         '''
@@ -186,7 +193,6 @@ class CPD(pkp.cpd.CPD):
         f_frag_n = m_frag_n * Qn
         f_frag_n /= f_frag_n.sum() * f_frag
         return {'f_gas': f_gas,
-                'f_tar': f_tar,
                 'f_char': f_char,
                 'f_frag': f_frag,
                 'f_frag_n': f_frag_n,

@@ -19,7 +19,7 @@ def create_cpd():
 
 def test_ode():
     coal = create_cpd()
-    t, y = coal._bridge_evolution()
+    t, y, fract = coal._bridge_evolution()
     ax = plt.subplot(111)
     l = y[:, 0]
     delta = y[:, 1]
@@ -36,8 +36,12 @@ def test_ode():
     ax.plot(t, g2 / 2, label='$g_2/2$')
     ax.legend()
 
-    # ax.figure.save('cpd_0.png')
-    # plt.close(ax.figure)
+    ax = plt.subplot(111)
+    labels = ['solid', 'gas', 'tar', 'meta', 'cross']
+    for i, l in enumerate(labels):
+        ax.plot(t, fract[:, i], label=l)
+    ax.legend()
+    plt.show()
 
 
 def test_percolation():
