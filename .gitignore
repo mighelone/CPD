@@ -3,3 +3,4 @@ cpd/__pycache__
 .cache/
 __pycache__/
 /log
+cpd*.png
