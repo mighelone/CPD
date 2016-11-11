@@ -4,3 +4,12 @@ cpd/__pycache__
 __pycache__/
 /log
 cpd*.png
+/CPD_Test.csv
+/CPD_Test.inp
+/CPD_Test_1.out
+/CPD_Test_2.out
+/CPD_Test_3.out
+/CPD_Test_4.out
+/input_CPD_Test
+/test.err
+/test.out
