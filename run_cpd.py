@@ -27,7 +27,7 @@ if __name__ == '__main__':
         c0 = pkp.cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
                          pressure=101325, name='Test')
         c0.operating_conditions = operating_conditions
-        c0.set_parameters(dt=1e-5, dt_max=10)
+        c0.set_parameters(dt=1e-5, dt_max=1e-4, increment=2)
         results0 = c0.run()
 
     coal = cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
