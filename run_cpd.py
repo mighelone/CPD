@@ -22,51 +22,46 @@ if __name__ == '__main__':
     operating_conditions = [[0, 1000], [0.01, 1000], [0.05, 1000]]
 
     try:
-        results0 = pd.read_csv('CPD_Test.csv', index_col=0)
+        results0 = pd.read_csv('CPD_Test.csv')
     except FileNotFoundError:
         c0 = pkp.cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
                          pressure=101325, name='Test')
         c0.operating_conditions = operating_conditions
         c0.set_parameters(dt=1e-5, dt_max=1e-4, increment=2)
-        results0 = c0.run()
+        results0 = c0.run().reset_index()
 
     coal = cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
                    pressure=101325, name='Test')
     coal.operating_conditions = operating_conditions
 
-    results = coal.run()
+    results = coal.run(n_frag=20)
+    results['delta/2'] = 0.5 * results['delta']
+    labels = ['$l$', '$\delta/2$', '$p$']
+    vars_new = ['l', 'delta/2', 'p']
+    vars_old = ['l', 'del/2', 'p']
 
     fig, axes = plt.subplots(
         nrows=2, ncols=1, sharex='col', figsize=(8, 12))
     ax1, ax2 = axes
-    results['delta/2'] = 0.5 * results['delta']
 
-    results.plot(x='t', y='l', label='$l$', color=colors[0], ax=ax1)
-    results.plot(x='t', y='delta/2', label='$delta/2$', color=colors[1],
-                 ax=ax1)
-    results.plot(x='t', y='p', label='$c$', color=colors[2], ax=ax1)
-    #ax1.plot(t, l, label='$l$', color=colors[0])
-    #ax1.plot(t, delta / 2, label='$\delta/2$', color=colors[1])
-    #ax1.plot(t, c + l, label='$p$', color=colors[2])
-
-    ax1.plot(results0.index, results0['l'], color=colors[0],
-             linestyle='dashed')
-    ax1.plot(results0.index, results0['del/2'], color=colors[1],
-             linestyle='dashed')
-    ax1.plot(results0.index, results0['p'], color=colors[2],
-             linestyle='dashed')
-    #ax1.plot(t, p, label='$p$')
-    #ax1.plot(t, g1 / 2, label='$g_1/2$')
-    #ax1.plot(t, g2 / 2, label='$g_2/2$')
+    for vn, vo, c in zip(vars_new, vars_old, colors):
+        results.plot(x='t', y=vn, color=c, ax=ax1)
+        results0.plot(x='t', y=vo, color=c, linestyle='dashed', ax=ax1)
     ax1.set_ylabel('Fraction of bridges')
-    ax1.legend()
+    # add an extra legend
+    # http://matplotlib.org/users/legend_guide.html#multiple-legend
+    # ax1.add_artist(plt.legend(ax1.lines[0:2], ['Python', 'Original'],
+    #                          loc='lower right', frameon=False))
+    ax1.legend(ax1.lines[::2], labels, frameon=False,
+               loc='upper right')
 
+    # ax2 = plt.subplots(212)
     labels = ['char', 'light_gas', 'tar']
     for i, l in enumerate(labels):
         results.plot(x='t', y=l, label=l, color=colors[i], ax=ax2)
-        ax2.plot(results0.index, results0[l],
-                 color=colors[i], linestyle='dashed')
-    ax2.legend()
+        results0.plot(x='t', y=l, color=colors[i], linestyle='dashed',
+                      ax=ax2)
+    ax2.legend(ax2.lines[::2], labels, frameon=False, loc='upper right')
     ax2.set_xlim([0, 0.05])
     ax2.set_xlabel('Time, s')
     ax2.set_ylabel('Yield')

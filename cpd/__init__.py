@@ -94,6 +94,12 @@ class CPD(pkp.cpd.CPD):
             {'mdel': 0, 'mw': 0, 'p0': 0, 'sig': 0}
         '''
         super(CPD, self)._set_NMR_parameters(nmr_parameters)
+        # test
+        # self.mdel /= (1 - self.c0)
+        # check this correction -> allow to obtain the same results as
+        # the original code
+        self.mdel -= 7
+
         self.sigma = self.sig - 1
         # average mass of the fused ring site
         self.ma = self.mw - self.sig * self.mdel
@@ -325,9 +331,9 @@ class CPD(pkp.cpd.CPD):
             f_gas, f_tar)
         f_solid = 1 - f_tar - f_gas
         self.__log.debug(
-            'fraction of remaining solid (includes finite and inf. fragments) %s', f_solid)
+            ('fraction of remaining solid (includes finite'
+             ' and inf. fragments) %s'), f_solid)
 
-        #
         n = np.arange(1, n_frag + 1)  # number of clusters in a fragment
         # broken bridges per cluster of size n
         tau = n * (self.sigma - 1) + 2

@@ -3,7 +3,6 @@ cpd/__pycache__
 .cache/
 __pycache__/
 /log
-cpd*.png
 /CPD_Test.csv
 /CPD_Test.inp
 /CPD_Test_1.out
