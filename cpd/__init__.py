@@ -100,6 +100,7 @@ class CPD(pkp.cpd.CPD):
         # mass of bridges
         self.mb = 2 * self.mdel
         self.rba = self.mb / self.ma
+        self.gasmw = self.rba * self.ma * 0.5
 
     def _dydt(self, t, y):
         '''
@@ -211,10 +212,9 @@ class CPD(pkp.cpd.CPD):
             # fragments formed in the last step
             df_n = percolation['f_frag_n'] - f_frag_n
             self.__log.debug('df_n=%s', df_n)
-            mw_gas = 28.0  # TODO define better this value
 
             tar_n, meta_n = self._flash_distillation(
-                df_gas=df_gas, mw_gas=mw_gas, df_n=df_n, meta_n=meta_n,
+                df_gas=df_gas, df_n=df_n, meta_n=meta_n,
                 mw_n=mw_n, fracr=fract, T=T)
 
             f_frag_n = percolation['f_frag_n']
@@ -384,8 +384,7 @@ class CPD(pkp.cpd.CPD):
     def _crosslinking(self, f_meta, T, dt):
         return self.Acr * np.exp(-self.Ecr / Rgas / T) * f_meta * dt
 
-    def _flash_distillation(self, df_gas, mw_gas, df_n, meta_n, mw_n,
-                            fracr, T):
+    def _flash_distillation(self, df_gas, df_n, meta_n, mw_n, fracr, T):
 
         def funct(x):
             '''Eq 54'''
@@ -406,10 +405,11 @@ class CPD(pkp.cpd.CPD):
         self.__log.debug('Increment of fragments %s', df_n)
         self.__log.debug('Previous metaplast %s', meta_n)
         self.__log.debug('Cross-linking correction %s', fracr)
-        F_n = np.append((df_n + meta_n * fracr) / mw_n, df_gas / mw_gas)
+        F_n = np.append((df_n + meta_n * fracr) / mw_n, df_gas /
+                        self.gasmw)
         self.__log.debug('F_n (mole) %s', F_n)
         F = F_n.sum()
-        mw = np.append(mw_n, mw_gas)
+        mw = np.append(mw_n, self.gasmw)
         # self.__log.debug('MW %s', mw)
         p_vap = a * np.exp(-b * mw ** g / T)
         self.__log.debug('p_vap %s', p_vap)
@@ -438,7 +438,8 @@ class CPD(pkp.cpd.CPD):
         tar_n_new = y_n[:-1] * V * mw_n
 
         assert np.allclose(
-            meta_n_new + tar_n_new, F_n[:-1] * mw_n), 'Sum of xn+yn should be equal to Fn'
+            meta_n_new + tar_n_new, F_n[:-1] * mw_n), \
+            'Sum of xn+yn should be equal to Fn'
         self.__log.debug('metaplast fraction %s', x_n)
         self.__log.debug('tar fraction %s', y_n)
 
