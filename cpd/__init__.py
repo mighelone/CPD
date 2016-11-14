@@ -23,6 +23,10 @@ from scipy.stats import norm, binom
 from scipy.optimize import brentq, newton
 import pandas as pd
 
+from ._version import get_versions
+__version__ = get_versions()['version']
+del get_versions
+
 Rgas = 1.987  # cal/mol-K
 
 
