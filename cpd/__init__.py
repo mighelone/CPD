@@ -514,7 +514,9 @@ class CPD(pkp.cpd.CPD):
         self.__log.debug('Cross-linking correction %s', fracr)
         F_n = np.append((df_n + meta_n * fracr) / mw_n, df_gas /
                         self.gasmw)
+        F_n[F_n < 0] = 0
         self.__log.debug('F_n (mole) %s', F_n)
+
         F = F_n.sum()
         mw = np.append(mw_n, self.gasmw)
         # self.__log.debug('MW %s', mw)
