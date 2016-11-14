@@ -27,7 +27,17 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
+from scipy.interpolate import interp1d
+
 Rgas = 1.987  # cal/mol-K
+
+xx = np.array([3.4, 3.2, 3., 2.8, 2.6, 2.4, 2.2, 2., 1.8,
+               1.6, 1.4, 1.2, 1., .8, .6, .4, .2, 0.])
+yy = np.array([.9997, .9993, .9987, .9974, .9953, .9918, .9861, .9772,
+               .9641, .9452, .9192, .8849, .8413, .7881, .7257, .6554,
+               .5793, .5])
+
+xx_yy = interp1d(yy, xx)
 
 
 def invernorm(y):
@@ -45,13 +55,25 @@ def invernorm(y):
     ------
     float: inverse of the norm CDF
     '''
-    y_min = 0.0003
-    y_max = 0.9997
-    if y < y_min:
-        y = y_min
-    elif y > y_max:
-        y = y_max
-    return norm.ppf(y)
+    # y_min = 0.0003
+    # y_max = 0.9997
+    # if y < y_min:
+    #    y = y_min
+    # elif y > y_max:
+    #    y = y_max
+    # return norm.ppf(y)
+    fac = 1
+    if y < 0.0003:
+        return -3.4
+    elif y < 0.5:
+        yp = 1 - y
+        fac = -1
+    elif y > 0.9997:
+        return 3.5
+    else:
+        yp = y
+
+    return fac * xx_yy(yp)
 
 
 @logged
