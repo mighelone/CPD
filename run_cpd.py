@@ -32,6 +32,7 @@ if __name__ == '__main__':
 
     coal = cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
                    pressure=101325, name='Test')
+    coal.set_parameters(dt=1e-6, dt_max=1e-4)
     coal.operating_conditions = operating_conditions
 
     results = coal.run(n_frag=20)

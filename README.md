@@ -6,3 +6,10 @@ The original model was developed in Fortran at BYU: http://www.et.byu.edu/~tom/d
 The model requires **PKP** as dependencies (ask for having access).
 
 ![Comparison between original CPD (dashed lines) and new implementation (solid lines)](./cpd.png)
+
+## TODO
+
+* Add gas concentration
+* Add nitrogen formation
+* Add drop tube mode
+* Test more

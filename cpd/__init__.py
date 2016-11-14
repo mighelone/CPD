@@ -53,12 +53,19 @@ def invernorm(y):
 @logged
 class CPD(pkp.cpd.CPD):
     '''
-    CPD class.
+    Run the Chemical Percolation Model (CPD) for evaluating the
+    devolatilization behaviour of coal.
+
+    It is based on the CPD_NLG version of the code:
+    http://www.et.byu.edu/~tom/cpd/cpdcodes.html
+
+    It is possible to use the Genetti correlation for estimating NMR
+    parameters, or they can directly defined if they are known.
     '''
 
     def run(self, time=None, n_frag=20):
         '''
-        Run CPD 
+        Run CPD
 
         Parameters
         ----------
@@ -107,6 +114,7 @@ class CPD(pkp.cpd.CPD):
         self.mb = 2 * self.mdel
         self.rba = self.mb / self.ma
         self.gasmw = self.rba * self.ma * 0.5
+        self.solver = None
 
     def _dydt(self, t, y):
         '''
@@ -159,8 +167,8 @@ class CPD(pkp.cpd.CPD):
         backend = 'dopri5'
         t0 = self.operating_conditions[0, 0]
         solver = ode(self._dydt).set_integrator(backend, nsteps=1,
-                                                first_step=1e-6,
-                                                max_step=1e-4,
+                                                first_step=self.dt,
+                                                max_step=self.dt_max,
                                                 verbosity=1)
         solver._integrator.iwork[2] = -1
         y0 = [self.p0 - self.c0,
@@ -272,7 +280,8 @@ class CPD(pkp.cpd.CPD):
         Returns
         -------
         percolation, dict:
-            Percolation dictionary {'f_gas', 'f_solid', 'f_frag', 'f_frag_n', 'm_frag_n', 'pstar'}
+            Percolation dictionary {'f_gas', 'f_solid', 'f_frag',
+            'f_frag_n', 'm_frag_n', 'pstar'}
         '''
         self.__log.debug('\n\nStart Percolation\n')
 
@@ -361,7 +370,8 @@ class CPD(pkp.cpd.CPD):
             'mass fraction of finite fragments %s', f_frag_n)
 
         self.__log.debug(
-            'Total fraction of fragments sum %s / Eq.35 %s', f_frag_n.sum(), f_frag)
+            'Total fraction of fragments sum %s / Eq.35 %s',
+            f_frag_n.sum(), f_frag)
 
         return {'f_gas': f_gas,
                 'f_solid': f_solid,
@@ -374,13 +384,65 @@ class CPD(pkp.cpd.CPD):
         pass
 
     def intact_bridges(self, y):
+        '''
+        Return the fraction of intact bridges
+
+        .. math::
+            p = l + c
+
+        Parameters
+        ----------
+        y: array
+            Array containing (l, delta, c)
+
+        Return
+        ------
+        p: float
+            Fraction of intact bridges
+        '''
         l, _, c = y
         return l + c
 
     def broken_bridges(self, y):
+        '''
+        Return the fraction of broken bridges
+
+        .. math::
+            f = 1 - (l + c)
+
+        Parameters
+        ----------
+        y: array
+            Array containing (l, delta, c)
+
+        Return
+        ------
+        f: float
+            Fraction of broken bridges
+        '''
+
         return 1 - self.intact_bridges(y)
 
     def gas(self, y):
+        '''
+        Return the fraction of gas produced
+
+        .. math::
+            g_1 = 2 \cdot f - \delta\\
+            g_2 = 2 \cdot (c-c_0)
+
+        Parameters
+        ----------
+        y: array
+            Array containing (l, delta, c)
+
+        Return
+        ------
+        g1, g2: (float, float)
+            Gas fraction produced from side chain and charred bridge,
+            respectively
+        '''
+
         f = self.broken_bridges(y)
         _, delta, c = y
         g1 = 2 * f - delta
@@ -388,20 +450,55 @@ class CPD(pkp.cpd.CPD):
         return g1, g2
 
     def _crosslinking(self, f_meta, T, dt):
+        '''
+        Calculate the rate of cross-linking, integrated over the time
+        step.
+
+        Parameters
+        ----------
+        f_meta: float
+            Fraction of metaplast
+        T: float
+            Temperature of the particle
+        dt: float
+            Integral delta time
+
+        Return
+        ------
+        ratecr: float
+        '''
         return self.Acr * np.exp(-self.Ecr / Rgas / T) * f_meta * dt
 
     def _flash_distillation(self, df_gas, df_n, meta_n, mw_n, fracr, T):
+        '''
+        Calculate the flash distillation of tar species from the
+        metaplast.
 
-        def funct(x):
-            '''Eq 54'''
-            return np.sum(x_n_calc(x) * (k_n - 1))
+        Parameters
+        ----------
+        df_gas: float
+            Incremental fraction of gas produced in the last time step
+        df_n: array
+            Incremental fraction of fragments produced in the last time
+            step
+        meta_n: array
+            Fraction of metaplast from the previous time step
+        mw_n: array
+            Mass weight of the fragments
+        fracr: float
+            Fraction of metaplast reattached during cross-linking. This
+            fraction does not partecipate to evaporation.
+        T: float:
+            Temperature of the particle
 
-        def x_n_calc(x):
-            '''
-            Eq. 52
-            '''
-            return z_n / (1 + (k_n - 1) * x)
-
+        Return
+        ------
+        tar_n_new: array
+            Fraction of tar produced from flash distillation. This
+            fraction is releases in the gas phase.
+        meta_n_new: array
+            Fraction of metaplast remaining in the particle.
+        '''
         self.__log.debug('\n\nStart flash_distillation\n')
 
         a = 87058.0
@@ -423,6 +520,10 @@ class CPD(pkp.cpd.CPD):
         # self.__log.debug('kn %s', k_n)
         z_n = F_n / F
         # self.__log.debug('zn %s', z_n)
+        # Eq. 52
+        x_n_calc = lambda x: z_n / (1 + (k_n - 1) * x)
+        # Eq. 54
+        funct = lambda x: np.sum(x_n_calc(x) * (k_n - 1))
         if funct(0) * funct(0.999) > 0:
             self.__log.debug('No vapor')
             fract_v = 0
