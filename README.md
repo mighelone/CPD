@@ -13,3 +13,4 @@ The model requires **PKP** as dependencies (ask for having access).
 * Add nitrogen formation
 * Add drop tube mode
 * Test more
+* Speed-up run

@@ -109,6 +109,7 @@ class CPD(pkp.cpd.CPD):
         # self.mdel /= (1 - self.c0)
         # check this correction -> allow to obtain the same results as
         # the original code
+        self.mdel /= (1 - self.c0)
         self.mdel -= 7
 
         self.sigma = self.sig - 1
