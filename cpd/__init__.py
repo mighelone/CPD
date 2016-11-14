@@ -36,8 +36,10 @@ xx = np.array([3.4, 3.2, 3., 2.8, 2.6, 2.4, 2.2, 2., 1.8,
 yy = np.array([.9997, .9993, .9987, .9974, .9953, .9918, .9861, .9772,
                .9641, .9452, .9192, .8849, .8413, .7881, .7257, .6554,
                .5793, .5])
+xx = xx[::-1]
+yy = yy[::-1]
 
-xx_yy = interp1d(yy, xx)
+# xx_yy = interp1d(yy, xx)
 
 
 def invernorm(y):
@@ -62,18 +64,25 @@ def invernorm(y):
     # elif y > y_max:
     #    y = y_max
     # return norm.ppf(y)
-    fac = 1
-    if y < 0.0003:
-        return -3.4
-    elif y < 0.5:
-        yp = 1 - y
+    #fac = 1
+    # if y < 0.0003:
+    #    return -3.4
+    # elif y < 0.5:
+    #    yp = 1 - y
+    #    fac = -1
+    # elif y > 0.9997:
+    #    return 3.5
+    # else:
+    #    yp = y
+    if y > 0.5:
+        y0 = 1 - y
         fac = -1
-    elif y > 0.9997:
-        return 3.5
     else:
-        yp = y
+        y0 = y
+        fac = 1
 
-    return fac * xx_yy(yp)
+    # return fac * xx_yy(yp)
+    return fac * np.interp(yp, yy, xx, left=-3.5)
 
 
 @logged
@@ -338,7 +347,7 @@ class CPD(pkp.cpd.CPD):
                 pstar_f = lambda x: fp(x) - fpp
                 # pstar = brentq(pstar_f, 0, p_threasold)
                 pstar = newton(pstar_f, p_threasold * 0.5)
-                self.__log.debug('Calc pstar with brentq %s', pstar)
+                self.__log.debug('Calc pstar with newton %s', pstar)
             else:
                 pstar = p
             self.__log.debug('p %s, pstar %s', p, pstar)
@@ -537,6 +546,9 @@ class CPD(pkp.cpd.CPD):
         self.__log.debug('Cross-linking correction %s', fracr)
         F_n = np.append((df_n + meta_n * fracr) / mw_n, df_gas /
                         self.gasmw)
+        if np.alltrue(F_n == 0):
+            self.__log.debug('F_n = 0 return tar, meta = 0')
+            return F_n[:-1], F_n[:-1]
         F_n[F_n < 0] = 0
         self.__log.debug('F_n (mole) %s', F_n)
 
@@ -550,9 +562,11 @@ class CPD(pkp.cpd.CPD):
         z_n = F_n / F
         # self.__log.debug('zn %s', z_n)
         # Eq. 52
-        x_n_calc = lambda x: z_n / (1 + (k_n - 1) * x)
+        k_n_1 = k_n - 1
+        x_n_calc = lambda x: z_n / (1 + k_n_1 * x)
         # Eq. 54
-        funct = lambda x: np.sum(x_n_calc(x) * (k_n - 1))
+        funct = lambda x: np.sum(x_n_calc(x) * k_n_1)
+        # gradf = lambda x: -np.sum(z_n * k_n_1 / (1 + k_n_1 * x)**2)
         if funct(0) * funct(0.999) > 0:
             self.__log.debug('No vapor')
             fract_v = 0
@@ -562,6 +576,7 @@ class CPD(pkp.cpd.CPD):
             y_n = np.zeros_like(x_n)
         else:
             fract_v = brentq(funct, 0, 0.999)
+            # fract_v = newton(funct, 0.5)
             self.__log.debug('V/F = %s', fract_v)
             V = fract_v * F  # moles of tar
             L = F - V
