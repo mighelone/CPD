@@ -19,7 +19,7 @@ import pkp.cpd
 import numpy as np
 from autologging import logged
 from scipy.integrate import ode
-from scipy.stats import norm, binom
+from scipy.stats import binom
 from scipy.optimize import brentq, newton
 import pandas as pd
 
@@ -27,7 +27,6 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
-from scipy.interpolate import interp1d
 
 Rgas = 1.987  # cal/mol-K
 
@@ -57,32 +56,14 @@ def invernorm(y):
     ------
     float: inverse of the norm CDF
     '''
-    # y_min = 0.0003
-    # y_max = 0.9997
-    # if y < y_min:
-    #    y = y_min
-    # elif y > y_max:
-    #    y = y_max
-    # return norm.ppf(y)
-    #fac = 1
-    # if y < 0.0003:
-    #    return -3.4
-    # elif y < 0.5:
-    #    yp = 1 - y
-    #    fac = -1
-    # elif y > 0.9997:
-    #    return 3.5
-    # else:
-    #    yp = y
     if y > 0.5:
-        y0 = 1 - y
-        fac = -1
-    else:
-        y0 = y
+        yp = y
         fac = 1
+    else:
+        yp = 1 - y
+        fac = -1
 
-    # return fac * xx_yy(yp)
-    return fac * np.interp(yp, yy, xx, left=-3.5)
+    return fac * np.interp(yp, yy, xx, right=3.4)
 
 
 @logged
