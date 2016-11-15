@@ -20,6 +20,7 @@ import numpy as np
 from autologging import logged
 from scipy.integrate import ode
 from scipy.stats import binom
+from .binomial import bpmfln
 from scipy.optimize import brentq, newton
 import pandas as pd
 
@@ -27,6 +28,9 @@ from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
 
+# define the binomial function
+binomial = bpmfln
+# binomial = binom.pmf
 
 Rgas = 1.987  # cal/mol-K
 
@@ -370,7 +374,7 @@ class CPD(pkp.cpd.CPD):
                      tau * self.mb * delta_fac * 0.25)
 
         # Eqs (1-4)
-        Qn = self.sig / n_bridges / n * binom.pmf(s, n_bridges, p)
+        Qn = self.sig / n_bridges / n * binomial(s, n_bridges, p)
         # Eq. (33) total mass of fragments of size
         m_frag_n = mw_frag_n * Qn
         self.__log.debug(
