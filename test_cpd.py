@@ -7,7 +7,7 @@ plt.style.use(['mystyle', 'mystyle-vega'])
 ua = {'C': 74.12, 'H': 4.96, 'O': 13.18, 'N': 1.45, 'S': 0}
 pa = {'FC': 57, 'VM': 43, 'Ash': 0, 'Moist': 0}
 
-operating_conditions = [[0, 1000], [0.01, 1000], [0.02, 1000]]
+operating_conditions = [[0, 700], [0.01, 1200], [0.02, 1200]]
 
 
 def create_cpd():
@@ -67,9 +67,19 @@ def test_flash():
                              meta_n=meta_n, mw_n=mw_n, fracr=fracr, T=T)
 
 
+def test_find_triangle():
+    coal = create_cpd()
+    ax = coal.find_triangle(plot='show')
+    results = coal.run()
+    gas = results['delta'] * 0.5 + results['l']
+    X_gas = 1 - gas / gas.iloc[0]
+    X = coal.calc_lightgases(X_gas)
+    return X
+
+
 log_level = logging.DEBUG
 
-logging.basicConfig(level=log_level)
+# logging.basicConfig(level=log_level)
 # test_flash()
-test_ode()
-plt.show()
+# test_ode()
+# plt.show()

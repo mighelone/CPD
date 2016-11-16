@@ -15,7 +15,7 @@ plt.style.use(['mystyle', 'mystyle-vega'])
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
-if __name__ == '__main__':
+def main():
     ua = {'C': 74.12, 'H': 4.96, 'O': 13.18, 'N': 1.45, 'S': 0}
     pa = {'FC': 57, 'VM': 43, 'Ash': 0, 'Moist': 0}
 
@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     try:
         results0 = pd.read_csv('CPD_Test.csv')
-    except FileNotFoundError:
+    except:
         c0 = pkp.cpd.CPD(ultimate_analysis=ua, proximate_analysis=pa,
                          pressure=101325, name='Test')
         c0.operating_conditions = operating_conditions
@@ -67,6 +67,9 @@ if __name__ == '__main__':
     ax2.set_xlabel('Time, s')
     ax2.set_ylabel('Yield')
 
-    fig.savefig('cpd.png')
+    # fig.savefig('cpd.png')
 
-    plt.show()
+    # plt.show()
+
+if __name__ == '__main__':
+    main()
