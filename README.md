@@ -9,8 +9,8 @@ The model requires **PKP** as dependencies (ask for having access).
 
 ## TODO
 
-* Add gas concentration
+* Add gas concentration (done small differences)
 * Add nitrogen formation
 * Add drop tube mode
-* Test more
-* Speed-up run
+* Test more (done check notebooks)
+* Speed-up run (working)
