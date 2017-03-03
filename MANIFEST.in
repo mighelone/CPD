@@ -1,0 +1,2 @@
+include versioneer.py
+include cpd/_version.py

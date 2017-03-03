@@ -23,3 +23,5 @@ input_*
 /notebook/test.err
 *.log
 *.lprof
+/#setup.py#
+test/cpd-*.png

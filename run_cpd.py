@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import logging
 import pandas as pd
 
-matplotlib.use('GTK3Agg')
+# matplotlib.use('GTK3Agg')
 
 log_level = logging.WARNING
 
