@@ -26,3 +26,4 @@ input_*
 /#setup.py#
 test/cpd-*.png
 *.pyc
+.idea

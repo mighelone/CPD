@@ -16,7 +16,7 @@ colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 ua = {'C': 74.12, 'H': 4.96, 'O': 13.18, 'N': 1.45, 'S': 0}
 pa = {'FC': 57, 'VM': 43, 'Ash': 0, 'Moist': 0}
 
-operating_conditions = [[0, 1000], [0.01, 1000], [0.05, 1000]]
+operating_conditions = [[0, 600], [0.01, 1200], [0.02, 1200]]
 
 pressure = 101325
 
@@ -53,14 +53,14 @@ def run_cpd(solver, ua, pa, oc, t=None, **parameters):
     return res.reset_index()
 
 
-def compare_results(res0, res, variable, rtol=1e-2):
+def compare_results(res0, res, variable, atol=1e-2):
     """
     Compare results from the two solutions. The second solution is interpolate
     against the time of the first.
     """
     var_ip = np.interp(res0['t'], res['t'], res[variable])
     try:
-        return np.allclose(res0[variable], var_ip, atol=rtol)
+        return np.allclose(res0[variable], var_ip, atol=atol)
     except ValueError as e:
         raise(e)
 
@@ -91,7 +91,7 @@ def test_cpd(coal):
         color = next(colors)
         res.plot('t', sp, linestyle='solid', ax=ax1, **color)
         res_ref.plot('t', sp, linestyle='dashed', ax=ax1, **color)
-        bridge_comparison.append(compare_results(res_ref, res, sp))
+        bridge_comparison.append(compare_results(res_ref, res, sp, atol=5e-2))
     ax1.set_ylabel('Fraction of bridges')
     ax1.legend(ax1.lines[::2], labels, frameon=False,
                loc='upper right')
@@ -104,9 +104,9 @@ def test_cpd(coal):
         color = next(colors)
         res.plot('t', sp, linestyle='solid', ax=ax2, **color)
         res_ref.plot('t', sp, linestyle='dashed', ax=ax2, **color)
-        yield_comparison.append(compare_results(res_ref, res, sp))
+        yield_comparison.append(compare_results(res_ref, res, sp, atol=5e-2))
     ax2.legend(ax2.lines[::2], labels, frameon=False, loc='upper right')
-    ax2.set_xlim([0, 0.05])
+    ax2.set_xlim([0, 0.02])
     ax2.set_xlabel('Time, s')
     ax2.set_ylabel('Yield')
 

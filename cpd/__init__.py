@@ -35,7 +35,7 @@ del get_versions
 try:
     from ._nb_functions import sum_x_n_calc, x_n_calc, fp, pstar_f
 except ModuleNotFoundError:
-    from ._np_functions import sum_x_n_calc
+    from ._np_functions import sum_x_n_calc, x_n_calc, fp, pstar_f
 
 # define the binomial function
 binomial = bpmfln
