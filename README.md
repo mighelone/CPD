@@ -21,3 +21,4 @@ Check [validation](./notebook/validation.ipynb)
 * Test more (done check notebooks)
 * Speed-up run (working)
 * Use Numba or Cython to speed up
+  - Check why Illinois shows different results with Numba!
