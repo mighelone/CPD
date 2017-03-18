@@ -7,6 +7,12 @@ The model requires **PKP** as dependencies (ask for having access).
 
 ![Comparison between original CPD (dashed lines) and new implementation (solid lines)](./cpd.png)
 
+## Validation
+
+Check [validationk](./notebook/validation.md)
+
+* Illinois coal shows differences. Recheck code!
+
 ## TODO
 
 * Add gas concentration (done small differences)
@@ -14,3 +20,4 @@ The model requires **PKP** as dependencies (ask for having access).
 * Add drop tube mode
 * Test more (done check notebooks)
 * Speed-up run (working)
+* Use Numba or Cython to speed up
