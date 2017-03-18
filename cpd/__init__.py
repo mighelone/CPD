@@ -34,8 +34,10 @@ del get_versions
 
 try:
     from ._nb_functions import sum_x_n_calc, x_n_calc, fp, pstar_f
+    _use_numba = True
 except ModuleNotFoundError:
     from ._np_functions import sum_x_n_calc, x_n_calc, fp, pstar_f
+    _use_numba = False
 
 # define the binomial function
 binomial = bpmfln
