@@ -59,11 +59,11 @@ def test_flash():
     f_frag_n = percolation['f_frag_n']
     df_n = f_frag_n * f
     mw_gas = 28.0
-    mw_n = percolation['m_frag_n']
+    mw_n = percolation['mw_frag_n']
     meta_n = f_frag_n * (1 - f)
     T = 800.0
     fracr = 1.0
-    coal._flash_distillation(df_gas=df_gas, mw_gas=mw_gas, df_n=df_n,
+    coal._flash_distillation(df_gas=df_gas, df_n=df_n,
                              meta_n=meta_n, mw_n=mw_n, fracr=fracr, T=T)
 
 

@@ -25,3 +25,4 @@ input_*
 *.lprof
 /#setup.py#
 test/cpd-*.png
+*.pyc

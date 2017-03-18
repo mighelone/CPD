@@ -16,6 +16,7 @@ from __future__ import print_function, unicode_literals
 
 import pkp
 import pkp.cpd
+import pkp.triangle
 import numpy as np
 from autologging import logged
 from scipy.integrate import ode
@@ -24,9 +25,17 @@ from .binomial import bpmfln
 from scipy.optimize import brentq, newton
 import pandas as pd
 
+# from pkp.interpolate import interp
+from numpy import interp
+
 from ._version import get_versions
 __version__ = get_versions()['version']
 del get_versions
+
+try:
+    from ._nb_functions import sum_x_n_calc, x_n_calc, fp, pstar_f
+except ModuleNotFoundError:
+    from ._np_functions import sum_x_n_calc
 
 # define the binomial function
 binomial = bpmfln
@@ -136,7 +145,8 @@ def invernorm(y):
     #    yp = 1 - y
     #    fac = -1
     yp, fac = (y, 1) if y > 0.5 else (1 - y, -1)
-    return fac * np.interp(yp, yy, xx, right=3.4)
+    # return fac * np.interp(yp, yy, xx, right=3.4)
+    return fac * interp(yp, yy, xx)
 
 
 @logged
@@ -177,7 +187,7 @@ class CPD(pkp.cpd.CPD):
         df = pd.DataFrame(data,
                           columns=['t', 'l', 'delta', 'c', 'char',
                                    'light_gas', 'tar', 'meta', 'cross'])
-        df['T'] = self.T(t)
+        df['T'] = [self.T(ti) for ti in t]
         df['p'] = self.intact_bridges(y.T)
         df['f'] = 1 - df['p']
         df['g1'], df['g2'] = self.gas(y.T)
@@ -409,11 +419,13 @@ class CPD(pkp.cpd.CPD):
             if p > 0.999:
                 pstar = 1
             elif p > p_threasold:
-                fp = lambda x: x * (1 - x)**(self.sigma - 1)
-                fpp = fp(p)
-                pstar_f = lambda x: fp(x) - fpp
+                # def fp(x): return x * (1 - x)**(self.sigma - 1)
+                fpp = fp(p, self.sigma)
+
+                # def pstar_f(x): return fp(x) - fpp
                 # pstar = brentq(pstar_f, 0, p_threasold)
-                pstar = newton(pstar_f, p_threasold * 0.5)
+                pstar = newton(pstar_f, p_threasold * 0.5,
+                               args=(self.sigma, fpp))
                 self.__log.debug('Calc pstar with newton %s', pstar)
             else:
                 pstar = p
@@ -630,11 +642,13 @@ class CPD(pkp.cpd.CPD):
         # self.__log.debug('zn %s', z_n)
         # Eq. 52
         k_n_1 = k_n - 1
-        x_n_calc = lambda x: z_n / (1 + k_n_1 * x)
+
+        # def x_n_calc(x): return z_n / (1 + k_n_1 * x)
         # Eq. 54
-        funct = lambda x: np.sum(x_n_calc(x) * k_n_1)
+
+        # def funct(x): return np.sum(x_n_calc(x) * k_n_1)
         # gradf = lambda x: -np.sum(z_n * k_n_1 / (1 + k_n_1 * x)**2)
-        if funct(0) * funct(0.999) > 0:
+        if sum_x_n_calc(0, z_n, k_n_1) * sum_x_n_calc(0.9999, z_n, k_n_1) > 0:
             self.__log.debug('No vapor')
             fract_v = 0
             V = 0
@@ -642,13 +656,15 @@ class CPD(pkp.cpd.CPD):
             x_n = F_n / F
             y_n = np.zeros_like(x_n)
         else:
-            fract_v = brentq(funct, 0, 0.999)
+            # fract_v = brentq(funct, 0, 0.999)
+            fract_v = brentq(sum_x_n_calc, 0, 0.9999, args=(z_n, k_n_1))
+            # np.testing.assert_almost_equal(fract_v, fract_v_n)
             # fract_v = newton(funct, 0.5)
             self.__log.debug('V/F = %s', fract_v)
             V = fract_v * F  # moles of tar
             L = F - V
             # mole fraction of n-mers in the metaplast
-            x_n = x_n_calc(fract_v)
+            x_n = x_n_calc(fract_v, z_n, k_n_1)
             # mole fraction of n-mers released as tar
             y_n = k_n * x_n if V > 0 else np.zeros_like(x_n)
 
@@ -694,7 +710,7 @@ class CPD(pkp.cpd.CPD):
                                       [6, 8, 9],
                                       [8, 9, 10]])
 
-        triangles = [pkp.polimi.Triangle(
+        triangles = [pkp.triangle.Triangle(
             *(points[ti] for ti in t)) for t in triangle_vertices]
         if plot:
             import matplotlib.pyplot as plt
@@ -735,6 +751,6 @@ class CPD(pkp.cpd.CPD):
             :math::`Y_g = 1-(\delta/2 + \pound)(\delta/2 + \pound)_0`
         '''
         y_refs = np.array(
-            [[np.interp(y, x_gas[i], y_gas[j, i]) for j in range(4)]
+            [[interp(y, x_gas[i], y_gas[j, i]) for j in range(4)]
              for i in self.triangle_coals])
         return np.dot(y_refs.T, self.triangle_weights)

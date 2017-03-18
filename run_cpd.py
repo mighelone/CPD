@@ -14,6 +14,8 @@ logging.basicConfig(level=log_level)
 plt.style.use(['mystyle', 'mystyle-vega'])
 colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
+plot = False
+
 
 def main():
     ua = {'C': 74.12, 'H': 4.96, 'O': 13.18, 'N': 1.45, 'S': 0}
@@ -70,6 +72,7 @@ def main():
     # fig.savefig('cpd.png')
 
     # plt.show()
+
 
 if __name__ == '__main__':
     main()
