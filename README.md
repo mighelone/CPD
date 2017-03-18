@@ -9,7 +9,7 @@ The model requires **PKP** as dependencies (ask for having access).
 
 ## Validation
 
-Check [validationk](./notebook/validation.ipynb)
+Check [validation](./notebook/validation.ipynb)
 
 * Illinois coal shows differences. Recheck code!
 
