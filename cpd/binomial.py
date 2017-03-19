@@ -32,7 +32,7 @@ try:
 
     @numba.jit(nopython=True)
     def bpmfln(k, n, p):
-        bnm = np.empty_like(n)
+        bnm = np.empty_like(n, dtype=np.float64)
         logp = math.log(p)
         one_logp = math.log(1 - p)
         for i in range(len(k)):

@@ -313,7 +313,7 @@ class CPD(pkp.cpd.CPD):
             # print(solver.t, solver.y, self._dydt(
             #    solver.t, solver.y), self.T(solver.t))
             solver.integrate(time_end, step=True)
-            self.__log.info(
+            self.__log.debug(
                 '\n\nStart new time step\ntime=%s y=%s\n', solver.t,
                 solver.y)
             self.__log.debug('Gas bridges=%s', self.gas(solver.y))
@@ -323,6 +323,7 @@ class CPD(pkp.cpd.CPD):
             y.append(solver.y)
 
             if f_meta > 1e-4:
+                # cross-linking
                 rate_cross = self._crosslinking(f_meta, T, dt)
                 fract = 1 - rate_cross / f_meta
                 f_meta -= rate_cross

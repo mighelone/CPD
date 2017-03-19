@@ -1,12 +1,8 @@
 import cpd
 import pkp
-import matplotlib
 import matplotlib.pyplot as plt
-import logging
-import pandas as pd
 import numpy as np
 import pytest
-import matplotlib.pyplot as plt
 
 plt.style.use('bmh')
 
