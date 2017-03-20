@@ -204,17 +204,20 @@ class CPD(pkp.cpd.CPD):
         if light_gas:
             X_gas = df['delta'] * 0.5 + df['l']
             X_gas = 1 - X_gas / X_gas.iloc[0]
-            self.find_triangle()
+            self.find_triangle(plot='show')
             if self.triangle:
                 # light gases are evaluated only if the coal
                 # is inside one of the defined points
                 X_gases = self.calc_lightgases(X_gas)
-                f_gases = pd.DataFrame(
-                    (df['light_gas'].values * X_gases.T).T,
-                    columns=gas_species)
-                df = pd.concat([df, f_gases], axis=1)
-                df['others'] = 1 - (df['CO'] + df['CO2'] +
-                                    df['H2O'] + df['CH4'])
+                for x, sp in zip(X_gases.T, ('CO', 'CO2', 'H2O', 'CH4')):
+                    df[sp] = x * df['light_gas']
+                df['others'] = 1 - X_gases.sum(axis=1)
+                # f_gases = pd.DataFrame(
+                #    (df['light_gas'].values * X_gases.T).T,
+                #    columns=gas_species, index=df.index)
+                # df = pd.concat([df, f_gases], axis=1)
+                # df['others'] = 1 - (df['CO'] + df['CO2'] +
+                #                    df['H2O'] + df['CH4'])
 
         df.to_csv(self._out_csv)
         return df
@@ -267,10 +270,19 @@ class CPD(pkp.cpd.CPD):
         # It is valid only for prescribed particle temperatures
         T = self.T(t)
         kb, rho, kg = self._rates(T, y)
-        dldt = -kb * l
         f = 1 / (1 + rho)
+        tol = 1e-8
+        if l > tol:
+            dldt = -kb * l
+            dcdt = kb * f * l
+        else:
+            dldt, dcdt = 0.0, 0.0
+        # if l < tol and delta < tol:
+        #    ddeldt = 0.0
+        # else:
         ddeldt = 2 * rho * kb * f * l - kg * delta
-        dcdt = kb * f * l
+        # self.__log.warning('t: %s y: %s - Rates: %s - %s %s',
+        #                   t, y, [dldt, ddeldt, dcdt], 2 * rho * kb * f, kg)
         return [dldt, ddeldt, dcdt]
 
     def _bridge_evolution(self, n_frag=20, time_end=None):
@@ -295,11 +307,13 @@ class CPD(pkp.cpd.CPD):
         '''
         # variables are [l, d, c]
         backend = 'dopri5'
+        backend = 'vode'
         t0 = self.operating_conditions[0, 0]
         solver = ode(self._dydt).set_integrator(backend, nsteps=1,
                                                 first_step=self.dt,
-                                                # dfactor=1.2,
-                                                rtol=1e-3,
+                                                # min_step=1e-6,
+                                                atol=1e-6,
+                                                rtol=1e-4,
                                                 max_step=self.dt_max)
 
         # verbosity=1)
@@ -328,15 +342,11 @@ class CPD(pkp.cpd.CPD):
         warnings.filterwarnings("ignore", category=UserWarning)
 
         while solver.t < time_end:
-            # print(solver.t)
-            # self.__log.debug('t=%s', solver.t)
-            # print(solver.t, solver.y, self._dydt(
-            #    solver.t, solver.y), self.T(solver.t))
             solver.integrate(time_end, step=True)
             self.__log.debug(
                 '\n\nStart new time step\ntime=%s y=%s\n', solver.t,
                 solver.y)
-            self.__log.debug('Gas bridges=%s', self.gas(solver.y))
+            self.__log.debug('t=%s - y=%s', solver.t, solver.y)
             dt = solver.t - t[-1]
             T = self.T(solver.t)
             t.append(solver.t)
@@ -386,7 +396,7 @@ class CPD(pkp.cpd.CPD):
         '''
         Calculate _rates for the given temperature
         '''
-        l, delta, c = y
+        l, delta, c = y  # (max(yi, 0) for yi in y)
         g1, g2 = self.gas(y)
         g = g1 + g2
         RT = T * Rgas
@@ -787,8 +797,10 @@ class CPD(pkp.cpd.CPD):
             ax.set_xlim(xmin=0)
             if plot == 'show':
                 ax.scatter(self.van_kravelen[0], self.van_kravelen[
-                           1], c='red', s=100)
+                           1], c='red', s=100, label=self.name)
             name = os.path.join(self.path, self.basename + '-van_kravelen.png')
+            ax.set_title('Van Kravelen diagram')
+            ax.legend(loc='lower right')
             fig.savefig(name)
             # plt.closefig(fig)
 
