@@ -20,10 +20,12 @@ import pkp.triangle
 import numpy as np
 from autologging import logged
 from scipy.integrate import ode
-from scipy.stats import binom
+# from scipy.stats import binom
 from .binomial import bpmfln
 from scipy.optimize import brentq, newton
 import pandas as pd
+import os
+import warnings
 
 # from pkp.interpolate import interp
 from numpy import interp
@@ -164,7 +166,7 @@ class CPD(pkp.cpd.CPD):
     parameters, or they can directly defined if they are known.
     '''
 
-    def run(self, time=None, light_gas=False, n_frag=20):
+    def run(self, time=None, light_gas=True, n_frag=20):
         '''
         Run CPD
 
@@ -185,23 +187,36 @@ class CPD(pkp.cpd.CPD):
             residence time.
         '''
         t, y, f = self._bridge_evolution(n_frag=n_frag, time_end=time)
+        if self.increment > 1:
+            t = t[::self.increment]
+            y = y[::self.increment]
+            f = f[::self.increment]
         data = np.concatenate([t[:, np.newaxis], y, f], axis=1)
-        df = pd.DataFrame(data,
+        df = pd.DataFrame(data, index=t,
                           columns=['t', 'l', 'delta', 'c', 'char',
                                    'light_gas', 'tar', 'meta', 'cross'])
         df['T'] = [self.T(ti) for ti in t]
         df['p'] = self.intact_bridges(y.T)
         df['f'] = 1 - df['p']
         df['g1'], df['g2'] = self.gas(y.T)
+        df['volatiles'] = df['tar'] + df['light_gas']
+
         if light_gas:
             X_gas = df['delta'] * 0.5 + df['l']
             X_gas = 1 - X_gas / X_gas.iloc[0]
             self.find_triangle()
-            X_gases = self.calc_lightgases(X_gas)
-            f_gases = pd.DataFrame(
-                (df['light_gas'].values * X_gases.T).T, columns=gas_species)
-            df = pd.concat([df, f_gases], axis=1)
+            if self.triangle:
+                # light gases are evaluated only if the coal
+                # is inside one of the defined points
+                X_gases = self.calc_lightgases(X_gas)
+                f_gases = pd.DataFrame(
+                    (df['light_gas'].values * X_gases.T).T,
+                    columns=gas_species)
+                df = pd.concat([df, f_gases], axis=1)
+                df['others'] = 1 - (df['CO'] + df['CO2'] +
+                                    df['H2O'] + df['CH4'])
 
+        df.to_csv(self._out_csv)
         return df
 
     def _set_NMR_parameters(self, nmr_parameters=None):
@@ -283,8 +298,11 @@ class CPD(pkp.cpd.CPD):
         t0 = self.operating_conditions[0, 0]
         solver = ode(self._dydt).set_integrator(backend, nsteps=1,
                                                 first_step=self.dt,
-                                                max_step=self.dt_max,
-                                                verbosity=1)
+                                                # dfactor=1.2,
+                                                rtol=1e-3,
+                                                max_step=self.dt_max)
+
+        # verbosity=1)
         solver._integrator.iwork[2] = -1
         y0 = [self.p0 - self.c0,
               2 * (1 - self.p0),
@@ -307,6 +325,8 @@ class CPD(pkp.cpd.CPD):
               f_cross]]
         meta_n = np.zeros(n_frag)    # init metaplast to zeros
         f_frag_n = np.zeros(n_frag)  # init fragments to zeros
+        warnings.filterwarnings("ignore", category=UserWarning)
+
         while solver.t < time_end:
             # print(solver.t)
             # self.__log.debug('t=%s', solver.t)
@@ -355,6 +375,7 @@ class CPD(pkp.cpd.CPD):
             f.append([f_solid, f_gas, f_tar, f_meta, f_cross])
             self.__log.debug('F=%s', f[-1])
 
+        warnings.resetwarnings()
         t = np.array(t)
         y = np.array(y)
         f = np.array(f)
@@ -628,7 +649,7 @@ class CPD(pkp.cpd.CPD):
         self.__log.debug('Cross-linking correction %s', fracr)
         F_n = np.append((df_n + meta_n * fracr) / mw_n, df_gas /
                         self.gasmw)
-        if np.alltrue(F_n == 0):
+        if np.allclose(F_n, 0):
             self.__log.debug('F_n = 0 return tar, meta = 0')
             return F_n[:-1], F_n[:-1]
         F_n[F_n < 0] = 0
@@ -688,6 +709,11 @@ class CPD(pkp.cpd.CPD):
         '''
         Find triangle for Genetti light gas correlation
         '''
+        def distance(p1, p2):
+            """Calc distance between two points"""
+            d = p1 - p2
+            return np.inner(d, d)
+
         points = np.array([[0.017773400000000002, 0.67172399999999999],
                            [0.020365399999999999, 0.58109549999999999],
                            [0.065940100000000001, 0.65505270000000004],
@@ -715,9 +741,41 @@ class CPD(pkp.cpd.CPD):
 
         triangles = [pkp.triangle.Triangle(
             *(points[ti] for ti in t)) for t in triangle_vertices]
+
+        # search triangle
+        self.triangle = None
+        for t, t_v in zip(triangles, triangle_vertices):
+            if t.is_inside(self.van_kravelen):
+                self.triangle = t
+                self.triangle_coals = t_v
+                self.triangle_weights = t.weights(self.van_kravelen)
+                self.__log.debug('Find triangle %s %s', t, t_v)
+                break
+        if self.triangle is None:
+            # add here a plot
+            self.__log.error('Defined coal is outside of the coal triangles '
+                             'defined in the Genetti correlation for light '
+                             'gases\n'
+                             'Light gases will not be calculated!')
+            plot = 'show'
+            # stop_calculation = True
+            # we should check for the closest point
+
+            distances = np.array(
+                [distance(p, self.van_kravelen) for p in points])
+            ref_coal = distances.argmin()
+
+            for triangle, vertices in zip(triangles, triangle_vertices):
+                if ref_coal in vertices:
+                    self.__log.error('Closest coal is %s', ref_coal)
+                    # self.triangle = triangle
+                    # self.triangle_coals = vertices
+                    # self.triangle_weights = t.weights(self.van_kravelen)
+                    break
+
         if plot:
             import matplotlib.pyplot as plt
-            _, ax = plt.subplots()
+            fig, ax = plt.subplots()
             ax.scatter(points[:, 0], points[:, 1], s=100, c='black')
             for n, point in zip(np.arange(len(points)), points):
                 ax.annotate(n, xy=point, xytext=(-5, 5),
@@ -730,18 +788,13 @@ class CPD(pkp.cpd.CPD):
             if plot == 'show':
                 ax.scatter(self.van_kravelen[0], self.van_kravelen[
                            1], c='red', s=100)
+            name = os.path.join(self.path, self.basename + '-van_kravelen.png')
+            fig.savefig(name)
+            # plt.closefig(fig)
 
-        # search triangle
-        for t, t_v in zip(triangles, triangle_vertices):
-            if t.is_inside(self.van_kravelen):
-                self.triangle = t
-                self.triangle_coals = t_v
-                self.triangle_weights = t.weights(self.van_kravelen)
-                self.__log.debug('Find triangle %s %s', t, t_v)
-                break
-
-        if plot:
-            return ax
+        # if stop_calculation:
+        #    raise ValueError('Triangle not found for evaluating light gases\n'
+        #                     'Check plot')
 
     def calc_lightgases(self, y):
         '''
